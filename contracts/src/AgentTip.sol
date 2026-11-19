@@ -10,8 +10,9 @@ interface IAgentID {
 }
 
 /// @title AgentTip
-/// @notice Tip BNB to fellow Agent ID holders by their readable name (e.g. `pavelryan.ai`).
+/// @notice Tip BNB to Agent ID holders by their readable name (e.g. `pavelryan.ai`).
 /// @dev Payments-only. No owner, no fees, no admin functions, no pause, no upgrade.
+///      Anyone can send a tip; the recipient must hold an Agent ID.
 ///      Name resolution is proven on-chain against the Agent ID contract:
 ///      tokenId = uint256(keccak256(label)), where label is the lowercase name
 ///      without the ".ai" suffix. Proof (BSC mainnet, eth_call):
@@ -26,7 +27,6 @@ contract AgentTip is ReentrancyGuard {
     /// @notice The SPACE ID Agent ID contract on BNB Chain.
     IAgentID public immutable agentId;
 
-    error NotAgentIDHolder();
     error EmptyTip();
     error InvalidName();
     error NameNotRegistered();
@@ -50,11 +50,11 @@ contract AgentTip is ReentrancyGuard {
         return agentId.balanceOf(account) > 0;
     }
 
-    /// @notice Send a BNB tip to the owner of `name`. Only Agent ID holders can tip.
+    /// @notice Send a BNB tip to the owner of `name`. Anyone can tip;
+    ///      the recipient must hold an Agent ID.
     /// @dev Forwards the full msg.value to the resolved owner. No fee is taken and
     ///      no funds ever stay in this contract.
     function tipByName(string calldata name) external payable nonReentrant {
-        if (!isAgentIDHolder(msg.sender)) revert NotAgentIDHolder();
         if (msg.value == 0) revert EmptyTip();
         bytes memory label = _normalize(name);
         if (label.length == 0) revert InvalidName();

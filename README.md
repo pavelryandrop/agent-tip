@@ -11,14 +11,15 @@ Built for the **Binance Wallet × BNB Chain Agent ID Hackathon**
 Agent ID is an on-chain name for an Agentic Wallet (`name.ai`), issued as a
 non-transferable NFT by the SPACE ID Agent ID contract on BNB Chain.
 Remembering `0x358e…` is hard; remembering `pavelryan.ai` is easy.
-AgentTip lets any Agent ID holder send a BNB tip to another holder by typing
+AgentTip lets anyone send a BNB tip to an Agent ID holder by typing
 their name — the contract resolves the name to the owner's wallet on-chain
 and forwards the full amount.
 
 ## How it works
 
-1. Connect a wallet holding an Agent ID (the contract checks
-   `balanceOf(msg.sender) > 0` on the Agent ID contract).
+1. Connect any wallet — no Agent ID is needed to send. Only the recipient
+   must hold an Agent ID (the name must resolve to an address with
+   `balanceOf > 0` on the Agent ID contract).
 2. Type the recipient's name (`pavelryan.ai`) and an amount.
 3. Preview the resolved destination address **before** confirming in your wallet.
 4. Confirm. The contract sends the full amount to the recipient and emits a
@@ -36,7 +37,7 @@ owner   = AgentID.ownerOf(tokenId)
 | Piece | Location |
 |---|---|
 | Smart contract | `contracts/src/AgentTip.sol` (Solidity 0.8.20, OpenZeppelin ReentrancyGuard) |
-| Tests | `contracts/test/` — 13 unit tests (mock Agent ID) + 3 fork tests (real BSC state), 16/16 passing |
+| Tests | `contracts/test/` — 13 unit tests (mock Agent ID) + 4 fork tests (real BSC state), 17/17 passing |
 | Frontend | `frontend/index.html` — static site (GitHub Pages), ethers.js, no backend |
 | Research notes | `RESEARCH.md` — on-chain proofs, submission-channel status, red-line compliance |
 | Submission draft | `SUBMISSION-DRAFT.md` |
@@ -46,12 +47,14 @@ owner   = AgentID.ownerOf(tokenId)
 | Contract | Address |
 |---|---|
 | Agent ID (SPACE ID) | `0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F` |
-| AgentTip | `0x77f0f9fc39664de8ade5063ac32c8a199f330896` (BSC, deployed 2026-11-19) |
+| AgentTip | `0x5475d04287A41707DBd68B7D5cc4b557C88A7006` (BSC, v2 redeployed 2026-11-19 — anyone can tip now; v1 `0x77f0f9fc39664de8ade5063ac32c8a199f330896` superseded) |
 
 ## Agent ID usage
 
-- **Access control:** only Agent ID holders can call `tipByName` — enforced
-  on-chain via `balanceOf` on the Agent ID contract.
+- **Access control:** anyone can call `tipByName` — there is no sender
+  check. The recipient must hold an Agent ID, enforced on-chain: the name
+  must resolve to an address with `balanceOf > 0`, otherwise the tip reverts
+  with `NameNotRegistered`.
 - **Payments:** the core use case — tipping by human-readable name instead of
   a 0x address, with the destination previewed before the user confirms.
 - **Identity:** the sender's and recipient's Agent ID names are recorded in the
@@ -80,7 +83,8 @@ cd contracts && forge build && forge test
 ## Deploy
 
 Deployment is a separate, explicitly approved step (it costs gas — measured
-**614,699 gas**, ~$0.02 at the 0.05 gwei gas price seen on 2026-11-19).
+**606,471 gas**, ~0.0000303 BNB at the 0.05 gwei gas price seen on 2026-11-19 for
+the v2 redeploy; v1 used 614,699 gas).
 See `contracts/README.md` for the simulation-first deploy procedure.
 
 ## License

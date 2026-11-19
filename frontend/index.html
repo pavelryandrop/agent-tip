@@ -57,7 +57,7 @@
   <div class="card">
     <h2>1 · Connect your wallet</h2>
     <p class="muted">MetaMask or any injected wallet, on BNB Smart Chain (chain 56).
-    Only Agent ID holders can send tips — the contract enforces this on-chain.</p>
+    Anyone can send a tip — only the recipient needs to hold an Agent ID.</p>
     <div class="row">
       <button id="connectBtn">Connect wallet</button>
       <span id="walletInfo" class="mono"></span>
@@ -123,8 +123,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
 <script>
-// Deployed on BNB Chain 2026-11-19 (see contracts/README.md).
-const AGENT_TIP_ADDRESS = "0x77f0f9fc39664de8ade5063ac32c8a199f330896";
+// Deployed on BNB Chain 2026-11-19 (v2: anyone can tip; only the recipient must hold an Agent ID).
+const AGENT_TIP_ADDRESS = "0x5475d04287A41707DBd68B7D5cc4b557C88A7006";
 const AGENT_ID_ADDRESS = "0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F";
 const BSC_CHAIN_ID = 56;
 const RPC_URL = "https://bsc-dataseed.binance.org";
@@ -205,13 +205,13 @@ $("connectBtn").onclick = async () => {
     $("connectBtn").disabled = true;
     const bal = await agentId.balanceOf(account);
     if (bal > 0n) {
-      $("holderStatus").innerHTML = '<span class="ok">✓ This wallet holds an Agent ID — you can send tips.</span>';
+      $("holderStatus").innerHTML = '<span class="ok">✓ This wallet holds an Agent ID.</span>';
       $("myNameRow").style.display = "block";
-      $("sendBtn").disabled = !deployed;
     } else {
-      $("holderStatus").innerHTML = '<span class="err">This wallet does not hold an Agent ID, so it cannot send tips. ' +
-        'Claim a free Agent ID in the Binance app (Wallet → Agent ID banner) first.</span>';
+      $("holderStatus").innerHTML = '<span class="muted">This wallet does not hold an Agent ID — that is fine. ' +
+        'Anyone can send tips; only the recipient needs an Agent ID.</span>';
     }
+    $("sendBtn").disabled = !deployed;
     loadFeed();
   } catch (e) {
     const msg = (e?.code === 4001 || e?.code === "ACTION_REJECTED")

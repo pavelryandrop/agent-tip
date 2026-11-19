@@ -1,13 +1,15 @@
 # AgentTip — Smart Contract
 
-Tip BNB to fellow Agent ID holders by their readable name (e.g. `pavelryan.ai`).
+Tip BNB to Agent ID holders by their readable name (e.g. `pavelryan.ai`).
 Built for the Binance Wallet × BNB Chain **Agent ID Hackathon** (submission period
 18 Nov – 9 Dec 2026).
 
 ## How it works
 
-1. The sender must hold an Agent ID: `balanceOf(msg.sender) > 0` on the Agent ID
-   contract (`0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F`, SPACE ID Agent ID, ERC-721).
+1. Anyone can send a tip — there is no sender check. The recipient must hold
+   an Agent ID: the name must resolve to an address with `balanceOf > 0` on the
+   Agent ID contract (`0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F`, SPACE ID Agent ID,
+   ERC-721), otherwise the tip reverts with `NameNotRegistered`.
 2. The recipient name is resolved on-chain:
    `tokenId = uint256(keccak256(label))`, where `label` is the lowercase name
    without the `.ai` suffix. `ownerOf(tokenId)` gives the recipient address.
@@ -40,24 +42,24 @@ Built for the Binance Wallet × BNB Chain **Agent ID Hackathon** (submission per
 |---|---|
 | Source | `src/AgentTip.sol` (Solidity 0.8.20, optimizer on, 200 runs) |
 | Agent ID contract (BSC) | `0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F` |
-| AgentTip address (BSC) | **TODO — set after deployment** |
+| AgentTip address (BSC) | **0x5475d04287A41707DBd68B7D5cc4b557C88A7006** (v2, deployed 2026-11-19, tx 0x271fbd91d0c8927a84b46636decb7d7b56282b53ac53c67af85689f21c0b6136; v1 0x77f0f9fc39664de8ade5063ac32c8a199f330896 superseded) |
 | Bytecode size | 2,638 bytes |
-| Deployment gas (measured on local anvil) | **614,699 gas** |
-| Deployment cost at BSC gas price 0.05 gwei (19 Nov 2026) | ~0.0000307 BNB (~$0.02 at $588.61/BNB) |
+| Deployment gas (measured on local anvil) | **606,471 gas** (v2 redeploy 2026-11-19; v1 used 614,699 gas) |
+| Deployment cost at BSC gas price 0.05 gwei (19 Nov 2026) | ~0.0000303 BNB (~$0.02 at $588.61/BNB) |
 | Tip call gas | < ~70,000 gas (inside fork-test total of 71,547) |
 
 ## Build & test
 
 ```shell
 forge build
-forge test            # 13 unit tests (mock Agent ID) + 3 fork tests (real BSC state)
+forge test            # 13 unit tests (mock Agent ID) + 4 fork tests (real BSC state)
 ```
 
 Fork tests read live BSC state via `https://bsc-dataseed.binance.org` and verify
 the real test vector: `resolveName("pavelryan.ai") == 0x358e42fD1aA6097BdCBFe86424Dcc4D5633E0a92`
 and a full tip from that address on the fork.
 
-## Deploy (separate, user-approved step — NOT done yet)
+## Deploy (v2 redeployed 2026-11-19 — simulation-first, then broadcast)
 
 ```shell
 # 1. Dry-run the deployment simulation first and confirm the exact gas cost.

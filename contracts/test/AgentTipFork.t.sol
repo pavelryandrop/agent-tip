@@ -30,7 +30,7 @@ contract AgentTipForkTest is Test {
 
     function testForkTipPavelSelf() public {
         // Self-tip from Pavel's real address (pranked on the fork): proves the full
-        // path holder-check -> real resolution -> transfer -> event against live state.
+        // path real resolution -> transfer -> event against live state.
         vm.deal(PAVEL, 1 ether);
         uint256 before = PAVEL.balance;
         vm.expectEmit(true, true, false, true, address(tip));
@@ -38,6 +38,19 @@ contract AgentTipForkTest is Test {
         vm.prank(PAVEL);
         tip.tipByName{value: 0.01 ether}("pavelryan.ai");
         assertEq(PAVEL.balance, before, "self-tip returns funds minus gas");
+        assertEq(address(tip).balance, 0);
+    }
+
+    function testForkTipFromNonHolder() public {
+        // A random address with no Agent ID can tip Pavel on the fork.
+        address stranger = makeAddr("fork-stranger");
+        vm.deal(stranger, 1 ether);
+        uint256 before = PAVEL.balance;
+        vm.expectEmit(true, true, false, true, address(tip));
+        emit Tip(stranger, "pavelryan.ai", PAVEL, 0.01 ether);
+        vm.prank(stranger);
+        tip.tipByName{value: 0.01 ether}("pavelryan.ai");
+        assertEq(PAVEL.balance, before + 0.01 ether);
         assertEq(address(tip).balance, 0);
     }
 

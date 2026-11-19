@@ -39,9 +39,10 @@ contract GoodRecipient {
 }
 
 /// @notice A recipient that tries to re-enter tipByName from its receive().
-/// @dev It is given its own mock Agent ID so the holder check passes on re-entry.
-///      The re-entry is wrapped in try/catch so the test can observe that the guard
-///      blocked it while the legitimate outer tip still completes exactly once.
+/// @dev The sender needs no Agent ID, so the re-entry reaches the
+///      ReentrancyGuard directly. The re-entry is wrapped in try/catch so the
+///      test can observe that the guard blocked it while the legitimate outer
+///      tip still completes exactly once.
 contract ReentrantAttacker {
     AgentTip public immutable tip;
     uint256 public entries;
@@ -144,10 +145,15 @@ contract AgentTipTest is Test {
         assertEq(address(good).balance, 0.2 ether);
     }
 
-    function testTipRevertsNotHolder() public {
+    function testTipFromNonHolder() public {
+        // Anyone can tip — the sender needs no Agent ID; only the recipient must hold one.
+        uint256 before = alice.balance;
+        vm.expectEmit(true, true, false, true, address(tip));
+        emit Tip(stranger, "alice.ai", alice, 0.1 ether);
         vm.prank(stranger);
-        vm.expectRevert(AgentTip.NotAgentIDHolder.selector);
         tip.tipByName{value: 0.1 ether}("alice.ai");
+        assertEq(alice.balance, before + 0.1 ether);
+        assertEq(address(tip).balance, 0, "contract must never hold funds");
     }
 
     function testTipRevertsUnregistered() public {
