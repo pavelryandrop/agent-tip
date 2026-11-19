@@ -182,6 +182,11 @@ $("connectBtn").onclick = async () => {
   if (!window.ethereum) { alert("No injected wallet found. Install MetaMask and try again."); return; }
   try {
     provider = new ethers.BrowserProvider(window.ethereum);
+    // Request accounts FIRST: some wallets (e.g. OKX) refuse even eth_chainId
+    // until the site has at least one connected account.
+    const accounts = await provider.send("eth_requestAccounts", []);
+    account = accounts[0];
+    if (!account) throw new Error("No account connected.");
     const net = await provider.getNetwork();
     if (Number(net.chainId) !== BSC_CHAIN_ID) {
       try {
@@ -192,8 +197,6 @@ $("connectBtn").onclick = async () => {
       }
       provider = new ethers.BrowserProvider(window.ethereum);
     }
-    const accounts = await provider.send("eth_requestAccounts", []);
-    account = accounts[0];
     signer = await provider.getSigner();
     agentId = new ethers.Contract(AGENT_ID_ADDRESS, AGENT_ID_ABI, provider);
     if (deployed) agentTip = new ethers.Contract(AGENT_TIP_ADDRESS, AGENT_TIP_ABI, provider);
@@ -211,7 +214,10 @@ $("connectBtn").onclick = async () => {
     }
     loadFeed();
   } catch (e) {
-    $("holderStatus").innerHTML = '<span class="err">Connection failed: ' + (e?.message || e) + "</span>";
+    const msg = (e?.code === 4001 || e?.code === "ACTION_REJECTED")
+      ? "Connection request was rejected in your wallet. Click Connect again and approve it."
+      : (e?.message || e);
+    $("holderStatus").innerHTML = '<span class="err">Connection failed: ' + msg + "</span>";
   }
 };
 
