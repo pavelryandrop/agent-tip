@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentTip — Tip BNB to Agent ID holders by name</title>
+<meta name="description" content="Send a BNB tip to any Agent ID holder by their readable name (e.g. pavelryan.ai). No fees, no admin, no accounts. Built for the Binance Wallet x BNB Chain Agent ID Hackathon.">
+<style>
+  :root { --bg:#0d1117; --card:#161b22; --line:#30363d; --text:#e6edf3; --muted:#8b949e;
+          --accent:#f0b90b; --green:#3fb950; --red:#f85149; --blue:#58a6ff; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; line-height:1.6; }
+  .wrap { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+  header { text-align:center; margin-bottom:28px; }
+  h1 { font-size:2.2rem; letter-spacing:-0.5px; }
+  h1 span { color:var(--accent); }
+  .tagline { color:var(--muted); margin-top:6px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; margin-bottom:16px; }
+  h2 { font-size:1.15rem; margin-bottom:12px; }
+  label { display:block; font-size:.9rem; color:var(--muted); margin:12px 0 4px; }
+  input { width:100%; background:#0d1117; border:1px solid var(--line); color:var(--text);
+          border-radius:8px; padding:10px 12px; font-size:1rem; }
+  input:focus { outline:2px solid var(--accent); border-color:var(--accent); }
+  button { background:var(--accent); color:#111; border:0; border-radius:8px; padding:11px 18px;
+           font-size:1rem; font-weight:700; cursor:pointer; margin-top:14px; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  button.secondary { background:transparent; color:var(--text); border:1px solid var(--line); font-weight:600; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.9em; word-break:break-all; }
+  .muted { color:var(--muted); font-size:.92rem; }
+  .ok { color:var(--green); } .err { color:var(--red); } .warn { color:var(--accent); }
+  #preview { display:none; margin-top:14px; border:1px dashed var(--line); border-radius:8px; padding:12px; }
+  #preview .big { font-size:1.15rem; font-weight:700; }
+  .status { margin-top:12px; font-size:.95rem; }
+  .tip-item { display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); font-size:.95rem; }
+  .tip-item:last-child { border-bottom:0; }
+  a { color:var(--blue); }
+  footer { text-align:center; color:var(--muted); font-size:.85rem; margin-top:32px; }
+  .banner { background:#2d2a00; border:1px solid #7a6d00; color:#ffd866; border-radius:8px; padding:10px 14px; margin-bottom:16px; font-size:.92rem; }
+  ol { padding-left:20px; } li { margin-bottom:6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Agent<span>Tip</span></h1>
+    <p class="tagline">Tip BNB to any Agent ID holder — by name, not by address.<br>
+    No fees. No admin. No account. Just a payment.</p>
+  </header>
+
+  <div id="deployBanner" class="banner" style="display:none">
+    The AgentTip contract is not deployed yet — this page is in preview mode.
+    Name resolution below already works against the live Agent ID contract;
+    sending tips unlocks as soon as the contract is deployed.
+  </div>
+
+  <div class="card">
+    <h2>1 · Connect your wallet</h2>
+    <p class="muted">MetaMask or any injected wallet, on BNB Smart Chain (chain 56).
+    Only Agent ID holders can send tips — the contract enforces this on-chain.</p>
+    <div class="row">
+      <button id="connectBtn">Connect wallet</button>
+      <span id="walletInfo" class="mono"></span>
+    </div>
+    <div id="holderStatus" class="status"></div>
+    <div id="myNameRow" style="display:none">
+      <label for="myName">Your Agent ID name (optional — we verify on-chain that it belongs to your wallet)</label>
+      <div class="row">
+        <input id="myName" placeholder="e.g. pavelryan.ai" style="flex:1">
+        <button id="verifyNameBtn" class="secondary">Verify</button>
+      </div>
+      <div id="myNameStatus" class="status"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2 · Send a tip</h2>
+    <label for="recipient">Recipient Agent ID name</label>
+    <input id="recipient" placeholder="e.g. pavelryan.ai" autocomplete="off">
+    <label for="amount">Amount (BNB)</label>
+    <input id="amount" type="number" min="0" step="0.0001" placeholder="0.01">
+    <div class="row">
+      <button id="previewBtn" class="secondary">Preview recipient</button>
+      <button id="sendBtn" disabled>Send tip</button>
+    </div>
+    <div id="preview">
+      <div>You're sending to</div>
+      <div class="big" id="previewName"></div>
+      <div class="mono" id="previewAddr"></div>
+      <div class="muted" id="previewNote">Check this address carefully — tips are irreversible.</div>
+    </div>
+    <div id="txStatus" class="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>Recent tips</h2>
+    <p class="muted">Latest <span class="mono">Tip</span> events from the AgentTip contract.</p>
+    <div id="feed"><p class="muted">Loading…</p></div>
+  </div>
+
+  <div class="card">
+    <h2>How it works</h2>
+    <ol>
+      <li>Agent ID is an on-chain name for an Agentic Wallet (<span class="mono">name.ai</span>),
+          issued as a non-transferable NFT by the SPACE ID Agent ID contract on BNB Chain.</li>
+      <li>AgentTip resolves a name to its owner with
+          <span class="mono">tokenId = keccak256(lowercase name without ".ai")</span>,
+          then calls <span class="mono">ownerOf(tokenId)</span> — proven against live BSC state.</li>
+      <li>Your tip goes straight to that owner. The contract takes no fee, holds no funds,
+          and has no owner or admin functions — there is nothing to upgrade or pause.</li>
+      <li>Every tip emits a <span class="mono">Tip</span> event, so the feed above is fully public and verifiable on BscScan.</li>
+    </ol>
+    <p class="muted">Tips are one-way payments and are irreversible. AgentTip promises no returns,
+    no yield, and no rewards. Contract source: MIT, open source.
+    Agent ID contract: <a class="mono" href="https://bscscan.com/address/0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F" target="_blank" rel="noopener">0x60B9…022F</a></p>
+  </div>
+
+  <footer>
+    AgentTip — built for the Binance Wallet × BNB Chain Agent ID Hackathon.<br>
+    Not affiliated with, or endorsed by, Binance.
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+<script>
+// Deployed on BNB Chain 2026-11-19 (see contracts/README.md).
+const AGENT_TIP_ADDRESS = "0x77f0f9fc39664de8ade5063ac32c8a199f330896";
+const AGENT_ID_ADDRESS = "0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F";
+const BSC_CHAIN_ID = 56;
+const RPC_URL = "https://bsc-dataseed.binance.org";
+const BSCSCAN = "https://bscscan.com";
+
+const AGENT_ID_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function ownerOf(uint256) view returns (address)"
+];
+const AGENT_TIP_ABI = [
+  "function resolveName(string) view returns (address)",
+  "function isAgentIDHolder(address) view returns (bool)",
+  "function tipByName(string) payable",
+  "event Tip(address indexed sender, string recipientName, address indexed recipient, uint256 amount)"
+];
+
+const $ = (id) => document.getElementById(id);
+const short = (a) => a ? a.slice(0, 6) + "…" + a.slice(-4) : "";
+let provider, signer, account, agentId, agentTip;
+const deployed = AGENT_TIP_ADDRESS.toLowerCase() !== "0x0000000000000000000000000000000000000000";
+if (!deployed) $("deployBanner").style.display = "block";
+
+function normalizeName(input) {
+  let s = (input || "").trim();
+  if (s.toLowerCase().endsWith(".ai")) s = s.slice(0, -3);
+  s = s.toLowerCase().trim();
+  if (!s || s.includes(".")) return "";
+  return s;
+}
+function labelToTokenId(label) {
+  return ethers.keccak256(ethers.toUtf8Bytes(label));
+}
+async function resolveDirect(label) {
+  // Fallback resolution straight against the Agent ID contract (used pre-deployment).
+  try { return await agentId.ownerOf(labelToTokenId(label)); }
+  catch { return ethers.ZeroAddress; }
+}
+async function resolveName(label) {
+  if (deployed && agentTip) {
+    try { return await agentTip.resolveName(label + ".ai"); } catch { return ethers.ZeroAddress; }
+  }
+  return resolveDirect(label);
+}
+
+function needEthers() {
+  if (typeof ethers === "undefined") {
+    alert("ethers.js failed to load from the CDN. Check your connection and reload.");
+    return false;
+  }
+  return true;
+}
+
+$("connectBtn").onclick = async () => {
+  if (!needEthers()) return;
+  if (!window.ethereum) { alert("No injected wallet found. Install MetaMask and try again."); return; }
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    const net = await provider.getNetwork();
+    if (Number(net.chainId) !== BSC_CHAIN_ID) {
+      try {
+        await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x38" }] });
+      } catch (e) {
+        $("holderStatus").innerHTML = '<span class="err">Please switch your wallet to BNB Smart Chain (chain 56).</span>';
+        return;
+      }
+      provider = new ethers.BrowserProvider(window.ethereum);
+    }
+    const accounts = await provider.send("eth_requestAccounts", []);
+    account = accounts[0];
+    signer = await provider.getSigner();
+    agentId = new ethers.Contract(AGENT_ID_ADDRESS, AGENT_ID_ABI, provider);
+    if (deployed) agentTip = new ethers.Contract(AGENT_TIP_ADDRESS, AGENT_TIP_ABI, provider);
+    $("walletInfo").textContent = short(account);
+    $("connectBtn").textContent = "Connected";
+    $("connectBtn").disabled = true;
+    const bal = await agentId.balanceOf(account);
+    if (bal > 0n) {
+      $("holderStatus").innerHTML = '<span class="ok">✓ This wallet holds an Agent ID — you can send tips.</span>';
+      $("myNameRow").style.display = "block";
+      $("sendBtn").disabled = !deployed;
+    } else {
+      $("holderStatus").innerHTML = '<span class="err">This wallet does not hold an Agent ID, so it cannot send tips. ' +
+        'Claim a free Agent ID in the Binance app (Wallet → Agent ID banner) first.</span>';
+    }
+    loadFeed();
+  } catch (e) {
+    $("holderStatus").innerHTML = '<span class="err">Connection failed: ' + (e?.message || e) + "</span>";
+  }
+};
+
+$("verifyNameBtn").onclick = async () => {
+  if (!needEthers() || !account) return;
+  const label = normalizeName($("myName").value);
+  if (!label) { $("myNameStatus").innerHTML = '<span class="err">Enter a valid name, e.g. pavelryan.ai</span>'; return; }
+  const owner = await resolveDirect(label);
+  if (owner.toLowerCase() === account.toLowerCase()) {
+    $("myNameStatus").innerHTML = '<span class="ok">✓ Verified on-chain: <b>' + label + '.ai</b> belongs to your wallet.</span>';
+  } else if (owner === ethers.ZeroAddress) {
+    $("myNameStatus").innerHTML = '<span class="err">"' + label + '.ai" is not a registered Agent ID.</span>';
+  } else {
+    $("myNameStatus").innerHTML = '<span class="err">"' + label + '.ai" belongs to ' + short(owner) + ', not to your wallet.</span>';
+  }
+};
+
+let lastPreview = null;
+$("previewBtn").onclick = async () => {
+  if (!needEthers()) return;
+  const label = normalizeName($("recipient").value);
+  const amount = $("amount").value;
+  if (!label) { $("txStatus").innerHTML = '<span class="err">Enter a valid recipient name.</span>'; return; }
+  if (!amount || Number(amount) <= 0) { $("txStatus").innerHTML = '<span class="err">Enter an amount greater than 0 BNB.</span>'; return; }
+  $("previewBtn").disabled = true;
+  $("previewBtn").textContent = "Resolving…";
+  const addr = await resolveName(label);
+  $("previewBtn").disabled = false;
+  $("previewBtn").textContent = "Preview recipient";
+  if (addr === ethers.ZeroAddress) {
+    $("preview").style.display = "none";
+    $("txStatus").innerHTML = '<span class="err">"' + label + '.ai" is not a registered Agent ID.</span>';
+    $("sendBtn").disabled = true;
+    lastPreview = null;
+    return;
+  }
+  lastPreview = { label, addr, amount };
+  $("previewName").textContent = label + ".ai";
+  $("previewAddr").textContent = addr;
+  $("preview").style.display = "block";
+  $("txStatus").innerHTML = "";
+  $("sendBtn").disabled = !deployed || !account;
+  if (!deployed) $("txStatus").innerHTML = '<span class="warn">Preview only — the AgentTip contract is not deployed yet.</span>';
+  if (!account) $("txStatus").innerHTML = '<span class="warn">Connect your wallet to send this tip.</span>';
+};
+
+$("sendBtn").onclick = async () => {
+  if (!needEthers() || !lastPreview || !signer) return;
+  $("sendBtn").disabled = true;
+  $("txStatus").innerHTML = "Waiting for your confirmation in the wallet…";
+  try {
+    const tipWithSigner = agentTip.connect(signer);
+    const tx = await tipWithSigner.tipByName(lastPreview.label + ".ai", {
+      value: ethers.parseEther(lastPreview.amount)
+    });
+    $("txStatus").innerHTML = 'Transaction sent: <a class="mono" href="' + BSCSCAN + "/tx/" + tx.hash + '" target="_blank" rel="noopener">' + short(tx.hash) + "</a> — waiting for confirmation…";
+    const receipt = await tx.wait();
+    if (receipt.status === 1) {
+      $("txStatus").innerHTML = '<span class="ok">✓ Tip confirmed in block ' + receipt.blockNumber + '.</span> ' +
+        '<a href="' + BSCSCAN + "/tx/" + tx.hash + '" target="_blank" rel="noopener">View on BscScan</a>';
+    } else {
+      $("txStatus").innerHTML = '<span class="err">Transaction failed on-chain.</span> ' +
+        '<a href="' + BSCSCAN + "/tx/" + tx.hash + '" target="_blank" rel="noopener">View on BscScan</a>';
+    }
+    loadFeed();
+  } catch (e) {
+    const msg = (e?.reason || e?.message || String(e)).slice(0, 200);
+    $("txStatus").innerHTML = '<span class="err">Send failed: ' + msg + "</span>";
+  }
+  $("sendBtn").disabled = false;
+};
+
+async function loadFeed() {
+  const feed = $("feed");
+  if (!deployed) {
+    feed.innerHTML = '<p class="muted">Recent tips will appear here after the AgentTip contract is deployed.</p>';
+    return;
+  }
+  try {
+    const rpc = new ethers.JsonRpcProvider(RPC_URL);
+    const c = new ethers.Contract(AGENT_TIP_ADDRESS, AGENT_TIP_ABI, rpc);
+    const latest = await rpc.getBlockNumber();
+    const from = Math.max(0, latest - 5000);
+    const events = await c.queryFilter(c.filters.Tip, from, latest);
+    if (!events.length) { feed.innerHTML = '<p class="muted">No tips yet — be the first.</p>'; return; }
+    feed.innerHTML = events.slice(-10).reverse().map((ev) =>
+      '<div class="tip-item"><span><span class="mono">' + short(ev.args.sender) + '</span> → <b>' +
+      ev.args.recipientName + '</b></span><span>' + ethers.formatEther(ev.args.amount) +
+      ' BNB · <a href="' + BSCSCAN + "/tx/" + ev.transactionHash + '" target="_blank" rel="noopener">tx</a></span></div>'
+    ).join("");
+  } catch (e) {
+    feed.innerHTML = '<p class="muted">Could not load recent tips from the public RPC. Check BscScan instead.</p>';
+  }
+}
+if (typeof ethers !== "undefined") loadFeed();
+else $("feed").innerHTML = '<p class="muted">ethers.js failed to load from the CDN — check your connection and reload.</p>';
+</script>
+</body>
+</html>
